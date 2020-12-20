@@ -21,11 +21,11 @@ The model will be downloaded as part of the build process.
 ### iOS app details
 
 The app is written entirely in Swift and uses the TensorFlow Lite
-[Swift library](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/lite/experimental/swift)
+[Swift library](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/lite/swift)
 for performing image classification.
 
 Note: Objective-C developers should use the TensorFlow Lite
-[Objective-C library](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/lite/experimental/objc).
+[Objective-C library](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/lite/objc).
 
 ## Requirements
 
@@ -52,7 +52,7 @@ You can build it and run with the iPhone Simulator, but the app will raise a
     https://github.com/tensorflow/examples.git`
 
 2.  Install the pod to generate the workspace file: `bash cd
-    examples/lite/examples/image_classification/ios pod install`
+    examples/lite/examples/image_classification/ios && pod install`
 
 Note: If you have installed this pod before and that command doesn't work, try
 `pod update`.

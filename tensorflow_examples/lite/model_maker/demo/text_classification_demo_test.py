@@ -20,7 +20,7 @@ import os
 import tempfile
 from unittest.mock import patch
 
-import tensorflow as tf # TF2
+import tensorflow as tf
 
 from tensorflow_examples.lite.model_maker.core import test_util
 from tensorflow_examples.lite.model_maker.core.data_util.text_dataloader import TextClassifierDataLoader
@@ -40,9 +40,10 @@ def patch_data_loader():
   def side_effect(*args, **kwargs):
     tf.compat.v1.logging.info('Train on partial dataset')
     data_loader = from_csv_fn(*args, **kwargs)
-    if data_loader.size > 2:  # Trim dataset to at most 2.
-      data_loader.size = 2
-      data_loader.dataset = data_loader.dataset.take(data_loader.size)
+    if len(data_loader) > 2:  # Trim dataset to at most 2.
+      data_loader._size = 2
+      # TODO(b/171449557): Change this once dataset is lazily loaded.
+      data_loader._dataset = data_loader._dataset.take(2)
     return data_loader
 
   return patch.object(
@@ -60,20 +61,21 @@ class TextClassificationDemoTest(tf.test.TestCase):
             file_hash='9f81648d4199384278b86e315dac217c')
 
         tflite_filename = os.path.join(temp_dir, 'model.tflite')
-        label_filename = os.path.join(temp_dir, 'label.txt')
-        vocab_filename = os.path.join(temp_dir, 'vocab.txt')
+        label_filename = os.path.join(temp_dir, 'labels.txt')
+        vocab_filename = os.path.join(temp_dir, 'vocab')
         # TODO(b/150597348): Bert model is out of memory when export to tflite.
         # Changed to a smaller bert models like mobilebert later for unittest.
         text_classification_demo.run(
-            data_dir,
-            tflite_filename,
-            label_filename,
-            vocab_filename,
-            spec='average_word_vec',
-            epochs=1,
-            batch_size=1)
+            data_dir, temp_dir, spec='average_word_vec', epochs=1, batch_size=1)
+
+        self.assertTrue(tf.io.gfile.exists(tflite_filename))
+        self.assertGreater(os.path.getsize(tflite_filename), 0)
+
+        self.assertFalse(tf.io.gfile.exists(label_filename))
+        self.assertFalse(tf.io.gfile.exists(vocab_filename))
 
 
 if __name__ == '__main__':
-  assert tf.__version__.startswith('2')
+  # Load compressed models from tensorflow_hub
+  os.environ['TFHUB_MODEL_LOAD_FORMAT'] = 'COMPRESSED'
   tf.test.main()

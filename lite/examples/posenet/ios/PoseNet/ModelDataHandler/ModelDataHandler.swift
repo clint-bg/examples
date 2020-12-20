@@ -59,6 +59,12 @@ class ModelDataHandler {
     switch delegate {
     case .Metal:
       delegates = [MetalDelegate()]
+    case .CoreML:
+      if let coreMLDelegate = CoreMLDelegate() {
+        delegates = [coreMLDelegate]
+      } else {
+        delegates = nil
+      }
     default:
       delegates = nil
     }
@@ -176,7 +182,6 @@ class ModelDataHandler {
       * Model.input.channelSize
     guard
       let inputData = thumbnail.rgbData(
-        byteCount: byteCount,
         isModelQuantized: Model.isQuantized
       )
     else {
@@ -366,6 +371,7 @@ enum BodyPart: String, CaseIterable {
 enum Delegates: Int, CaseIterable {
   case CPU
   case Metal
+  case CoreML
 
   var description: String {
     switch self {
@@ -373,6 +379,8 @@ enum Delegates: Int, CaseIterable {
       return "CPU"
     case .Metal:
       return "GPU"
+    case .CoreML:
+      return "NPU"
     }
   }
 }

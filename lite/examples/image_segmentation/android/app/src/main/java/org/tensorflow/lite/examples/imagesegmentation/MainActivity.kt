@@ -18,14 +18,13 @@ package org.tensorflow.lite.examples.imagesegmentation
 
 import android.Manifest
 import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModelProviders
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.hardware.camera2.CameraCharacteristics
 import android.os.Bundle
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
+import android.os.Process
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import android.util.Log
@@ -39,6 +38,7 @@ import android.widget.ImageView
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.app.ActivityCompat
 import com.bumptech.glide.Glide
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
@@ -48,6 +48,8 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import org.tensorflow.lite.examples.imagesegmentation.camera.CameraFragment
+import org.tensorflow.lite.examples.imagesegmentation.tflite.ImageSegmentationModelExecutor
+import org.tensorflow.lite.examples.imagesegmentation.tflite.ModelExecutionResult
 
 // This is an arbitrary number we are using to keep tab of the permission
 // request. Where an app has multiple context for requesting permission,
@@ -73,7 +75,7 @@ class MainActivity : AppCompatActivity(), CameraFragment.OnCaptureFinished {
 
   private var lastSavedFile = ""
   private var useGPU = false
-  private lateinit var imageSegmentationModel: ImageSegmentationModelExecutor
+  private var imageSegmentationModel: ImageSegmentationModelExecutor? = null
   private val inferenceThread = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
   private val mainScope = MainScope()
 
@@ -106,24 +108,23 @@ class MainActivity : AppCompatActivity(), CameraFragment.OnCaptureFinished {
       )
     }
 
-    viewModel = ViewModelProviders.of(this)
-      .get(MLExecutionViewModel::class.java)
+    viewModel = AndroidViewModelFactory(application).create(MLExecutionViewModel::class.java)
     viewModel.resultingBitmap.observe(
       this,
       Observer { resultImage ->
         if (resultImage != null) {
           updateUIWithResults(resultImage)
         }
+        enableControls(true)
       }
     )
 
-    imageSegmentationModel = ImageSegmentationModelExecutor(this, useGPU)
+    createModelExecutor(useGPU)
 
     useGpuSwitch.setOnCheckedChangeListener { _, isChecked ->
       useGPU = isChecked
       mainScope.async(inferenceThread) {
-        imageSegmentationModel.close()
-        imageSegmentationModel = ImageSegmentationModelExecutor(this@MainActivity, useGPU)
+        createModelExecutor(useGPU)
       }
     }
 
@@ -137,9 +138,23 @@ class MainActivity : AppCompatActivity(), CameraFragment.OnCaptureFinished {
 
     animateCameraButton()
 
-    setChipsToLogView(HashSet())
+    setChipsToLogView(HashMap<String, Int>())
     setupControls()
     enableControls(true)
+  }
+
+  private fun createModelExecutor(useGPU: Boolean) {
+    if (imageSegmentationModel != null) {
+      imageSegmentationModel!!.close()
+      imageSegmentationModel = null
+    }
+    try {
+      imageSegmentationModel = ImageSegmentationModelExecutor(this, useGPU)
+    } catch (e: Exception) {
+      Log.e(TAG, "Fail to create ImageSegmentationModelExecutor: ${e.message}")
+      val logText: TextView = findViewById(R.id.log_view)
+      logText.text = e.message
+    }
   }
 
   private fun animateCameraButton() {
@@ -149,7 +164,7 @@ class MainActivity : AppCompatActivity(), CameraFragment.OnCaptureFinished {
     captureButton.animation.start()
   }
 
-  private fun setChipsToLogView(itemsFound: Set<Int>) {
+  private fun setChipsToLogView(itemsFound: Map<String, Int>) {
     chipsGroup.removeAllViews()
 
     val paddingDp = TypedValue.applyDimension(
@@ -157,22 +172,19 @@ class MainActivity : AppCompatActivity(), CameraFragment.OnCaptureFinished {
       resources.displayMetrics
     ).toInt()
 
-    for (i in 0 until ImageSegmentationModelExecutor.NUM_CLASSES) {
-      if (itemsFound.contains(i)) {
-        val chip = Chip(this)
-        chip.text = ImageSegmentationModelExecutor.labelsArrays[i]
-        chip.chipBackgroundColor =
-          getColorStateListForChip(ImageSegmentationModelExecutor.segmentColors[i])
-        chip.isClickable = false
-        chip.setPadding(0, paddingDp, 0, paddingDp)
-        chipsGroup.addView(chip)
-      }
-      val labelsFoundTextView: TextView = findViewById(R.id.tfe_is_labels_found)
-      if (chipsGroup.childCount == 0) {
-        labelsFoundTextView.text = getString(R.string.tfe_is_no_labels_found)
-      } else {
-        labelsFoundTextView.text = getString(R.string.tfe_is_labels_found)
-      }
+    for ((label, color) in itemsFound) {
+      val chip = Chip(this)
+      chip.text = label
+      chip.chipBackgroundColor = getColorStateListForChip(color)
+      chip.isClickable = false
+      chip.setPadding(0, paddingDp, 0, paddingDp)
+      chipsGroup.addView(chip)
+    }
+    val labelsFoundTextView: TextView = findViewById(R.id.tfe_is_labels_found)
+    if (chipsGroup.childCount == 0) {
+      labelsFoundTextView.text = getString(R.string.tfe_is_no_labels_found)
+    } else {
+      labelsFoundTextView.text = getString(R.string.tfe_is_labels_found)
     }
     chipsGroup.parent.requestLayout()
   }
@@ -237,6 +249,7 @@ class MainActivity : AppCompatActivity(), CameraFragment.OnCaptureFinished {
     permissions: Array<String>,
     grantResults: IntArray
   ) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     if (requestCode == REQUEST_CODE_PERMISSIONS) {
       if (allPermissionsGranted()) {
         addCameraFragment()
@@ -265,8 +278,8 @@ class MainActivity : AppCompatActivity(), CameraFragment.OnCaptureFinished {
    * Check if all permission specified in the manifest have been granted
    */
   private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
-    ContextCompat.checkSelfPermission(
-      baseContext, it
+    checkPermission(
+      it, Process.myPid(), Process.myUid()
     ) == PackageManager.PERMISSION_GRANTED
   }
 

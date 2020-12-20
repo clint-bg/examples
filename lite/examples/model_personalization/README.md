@@ -141,8 +141,9 @@ The model should be now generated in the `mobilenet_softmax_model`
 directory.
 
 The more flexible option is to prepare the models you want to
-use as base and head as TensorFlow SavedModels. If you are using Keras,
-`tf.keras.experimental.export_saved_model` can be used to do this.
+use as base and head as TensorFlow SavedModels.
+
+In TF2.x, please use `keras_model.save(..., save_format='tf')`.
 
 Suppose your SavedModels are in directories `model_A` and `model_B`.
 Then by executing the following a personalizable model will be
@@ -247,10 +248,10 @@ dependencies {
   // Assuming you copied the Android library from this project to your project.
   implementation project(path: ':transfer_api')
 
-  implementation 'org.tensorflow:tensorflow-lite:0.0.0-nightly'
+  implementation('org.tensorflow:tensorflow-lite:0.0.0-nightly') { changing = true }
   // Please uncomment the following line if you use a custom Keras model.
   // (see TensorFlow Select Ops dependency section below).
-  // implementation 'org.tensorflow:tensorflow-lite-select-tf-ops:0.0.0-nightly'
+  // implementation('org.tensorflow:tensorflow-lite-select-tf-ops:0.0.0-nightly') { changing = true }
 }
 ```
 

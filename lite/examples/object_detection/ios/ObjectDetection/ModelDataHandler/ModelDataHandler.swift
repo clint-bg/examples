@@ -58,6 +58,10 @@ class ModelDataHandler: NSObject {
   let inputWidth = 300
   let inputHeight = 300
 
+  // image mean and std for floating model, should be consistent with parameters used in model training
+  let imageMean: Float = 127.5
+  let imageStd:  Float = 127.5
+
   // MARK: Private properties
   private var labels: [String] = []
 
@@ -98,7 +102,7 @@ class ModelDataHandler: NSObject {
 
     // Specify the options for the `Interpreter`.
     self.threadCount = threadCount
-    var options = InterpreterOptions()
+    var options = Interpreter.Options()
     options.threadCount = threadCount
     do {
       // Create the `Interpreter`.
@@ -117,7 +121,7 @@ class ModelDataHandler: NSObject {
   }
 
   /// This class handles all data preprocessing and makes calls to run inference on a given frame
-  /// through the `Interpeter`. It then formats the inferences obtained and returns the top N
+  /// through the `Interpreter`. It then formats the inferences obtained and returns the top N
   /// results for a successful inference.
   func runModel(onFrame pixelBuffer: CVPixelBuffer) -> Result? {
     let imageWidth = CVPixelBufferGetWidth(pixelBuffer)
@@ -316,7 +320,7 @@ class ModelDataHandler: NSObject {
     let bytes = Array<UInt8>(unsafeData: byteData)!
     var floats = [Float]()
     for i in 0..<bytes.count {
-      floats.append(Float(bytes[i]) / 255.0)
+      floats.append((Float(bytes[i]) - imageMean) / imageStd)
     }
     return Data(copyingBufferOf: floats)
   }

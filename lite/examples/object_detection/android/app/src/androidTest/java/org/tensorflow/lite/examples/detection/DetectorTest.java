@@ -40,8 +40,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.tensorflow.lite.examples.detection.env.ImageUtils;
-import org.tensorflow.lite.examples.detection.tflite.Classifier;
-import org.tensorflow.lite.examples.detection.tflite.Classifier.Recognition;
+import org.tensorflow.lite.examples.detection.tflite.Detector;
+import org.tensorflow.lite.examples.detection.tflite.Detector.Recognition;
 import org.tensorflow.lite.examples.detection.tflite.TFLiteObjectDetectionAPIModel;
 
 /** Golden test for Object Detection Reference app. */
@@ -51,21 +51,19 @@ public class DetectorTest {
   private static final int MODEL_INPUT_SIZE = 300;
   private static final boolean IS_MODEL_QUANTIZED = true;
   private static final String MODEL_FILE = "detect.tflite";
-  private static final String LABELS_FILE = "file:///android_asset/labelmap.txt";
+  private static final String LABELS_FILE = "labelmap.txt";
   private static final Size IMAGE_SIZE = new Size(640, 480);
 
-  private Classifier detector;
+  private Detector detector;
   private Bitmap croppedBitmap;
   private Matrix frameToCropTransform;
   private Matrix cropToFrameTransform;
 
   @Before
   public void setUp() throws IOException {
-    AssetManager assetManager =
-        InstrumentationRegistry.getInstrumentation().getContext().getAssets();
     detector =
         TFLiteObjectDetectionAPIModel.create(
-            assetManager,
+            InstrumentationRegistry.getInstrumentation().getContext(),
             MODEL_FILE,
             LABELS_FILE,
             MODEL_INPUT_SIZE,
@@ -91,7 +89,6 @@ public class DetectorTest {
     canvas.drawBitmap(loadImage("table.jpg"), frameToCropTransform, null);
     final List<Recognition> results = detector.recognizeImage(croppedBitmap);
     final List<Recognition> expected = loadRecognitions("table_results.txt");
-
 
     for (Recognition target : expected) {
       // Find a matching result in results
@@ -119,6 +116,7 @@ public class DetectorTest {
   private static boolean matchBoundingBoxes(RectF a, RectF b) {
     float areaA = a.width() * a.height();
     float areaB = b.width() * b.height();
+
     RectF overlapped =
         new RectF(
             max(a.left, b.left), max(a.top, b.top), min(a.right, b.right), min(a.bottom, b.bottom));

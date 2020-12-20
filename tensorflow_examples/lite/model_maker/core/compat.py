@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf # TF2
+import tensorflow as tf
 
 _DEFAULT_TF_BEHAVIOR = 2
 
@@ -38,7 +38,7 @@ def setup_tf_behavior(tf_version=_DEFAULT_TF_BEHAVIOR):
         'however v2 is more preferrable if they are supported.')
     tf.compat.v1.disable_v2_behavior()
   else:
-    assert tf.__version__.startswith('2')
+    tf.compat.v2.enable_v2_behavior()
   _tf_behavior_version = tf_version
 
 
@@ -50,3 +50,18 @@ def get_tf_behavior():
   """
   return _tf_behavior_version
 
+
+def get_compat_tf_versions(compat_tf_versions=None):
+  """Gets compatible tf versions (default: [2]).
+
+  Args:
+    compat_tf_versions: int, int list or None, indicates compatible versions.
+
+  Returns:
+    A list of compatible tf versions.
+  """
+  if compat_tf_versions is None:
+    compat_tf_versions = [2]
+  if not isinstance(compat_tf_versions, list):
+    compat_tf_versions = [compat_tf_versions]
+  return compat_tf_versions

@@ -18,13 +18,12 @@ package org.tensorflow.lite.examples.styletransfer
 
 import android.Manifest
 import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModelProviders
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.hardware.camera2.CameraCharacteristics
 import android.os.Bundle
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
+import android.os.Process
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import android.util.Log
@@ -40,6 +39,7 @@ import android.widget.ProgressBar
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.app.ActivityCompat
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool
 import com.bumptech.glide.load.resource.bitmap.BitmapTransformation
@@ -119,8 +119,7 @@ class MainActivity :
       )
     }
 
-    viewModel = ViewModelProviders.of(this)
-      .get(MLExecutionViewModel::class.java)
+    viewModel = AndroidViewModelFactory(application).create(MLExecutionViewModel::class.java)
 
     viewModel.styledBitmap.observe(
       this,
@@ -138,9 +137,16 @@ class MainActivity :
 
     useGpuSwitch.setOnCheckedChangeListener { _, isChecked ->
       useGPU = isChecked
+      // Disable control buttons to avoid running model before initialization
+      enableControls(false)
+
+      // Reinitialize TF Lite models with new GPU setting
       mainScope.async(inferenceThread) {
         styleTransferModelExecutor.close()
         styleTransferModelExecutor = StyleTransferModelExecutor(this@MainActivity, useGPU)
+
+        // Re-enable control buttons
+        runOnUiThread { enableControls(true) }
       }
     }
 
@@ -241,6 +247,7 @@ class MainActivity :
     permissions: Array<String>,
     grantResults: IntArray
   ) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     if (requestCode == REQUEST_CODE_PERMISSIONS) {
       if (allPermissionsGranted()) {
         addCameraFragment()
@@ -260,8 +267,8 @@ class MainActivity :
    * Check if all permission specified in the manifest have been granted
    */
   private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
-    ContextCompat.checkSelfPermission(
-      baseContext, it
+    checkPermission(
+      it, Process.myPid(), Process.myUid()
     ) == PackageManager.PERMISSION_GRANTED
   }
 

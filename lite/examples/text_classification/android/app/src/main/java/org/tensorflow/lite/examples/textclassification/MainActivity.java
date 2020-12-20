@@ -18,7 +18,7 @@ package org.tensorflow.lite.examples.textclassification;
 
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v7.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -26,11 +26,13 @@ import android.widget.EditText;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import java.util.List;
-import org.tensorflow.lite.examples.textclassification.TextClassificationClient.Result;
+import org.tensorflow.lite.examples.textclassification.client.Result;
+import org.tensorflow.lite.examples.textclassification.client.TextClassificationClient;
 
 /** The main activity to provide interactions with users. */
 public class MainActivity extends AppCompatActivity {
   private static final String TAG = "TextClassificationDemo";
+
   private TextClassificationClient client;
 
   private TextView resultTextView;
@@ -96,8 +98,7 @@ public class MainActivity extends AppCompatActivity {
           String textToShow = "Input: " + inputText + "\nOutput:\n";
           for (int i = 0; i < results.size(); i++) {
             Result result = results.get(i);
-            textToShow +=
-                String.format("    %s: %s\n", result.getTitle(), result.getConfidence());
+            textToShow += String.format("    %s: %s\n", result.getTitle(), result.getConfidence());
           }
           textToShow += "---------\n";
 
